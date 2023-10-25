@@ -1,72 +1,56 @@
-name: Traffic_killer
+name: Build and Release
 
-# 触发条件：在 push 到 main 分支后
 on:
   push:
     branches:
       - main
-env:
-  GITHUB_TOKEN: ${{ secrets.GOACTION }}      
+
 jobs:
-  buildAndDeploy:
-    runs-on:  ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    # 交叉构建,多平台交叉编译
-    strategy:
-      matrix:
-        include:
-          - goarch: amd64
-            goos: linux
-          - goarch: amd64
-            goos: darwin
-          - goarch: amd32
-            goos: linux
-          - goarch: amd32
-            goos: darwin
-          - goarch: arm64
-            goos: linux
-          - goarch: arm64
-            goos: darwin
-          - goarch: arm32
-            goos: linux
-          - goarch: arm32
-            goos: darwin
-    # 使用checkout
+  build:
+    runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with: 
-        go-version: '>=1.21.0'
-    - run: go version
-    - name: make
-      run: make
-      env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}            
-    - name: Packaging...
-      run: tar czf nodeUpgrade-${{ matrix.goos }}-${{ matrix.goarch }}.tgz nodeUpgrade
-    - name: Get version
-      id: version
-      run: echo "::set-output name=version::$(git rev-parse --short HEAD)"
-    - name: Gets latest created release info
-      uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag:  ${{ steps.version.outputs.version }}
-          prerelease: true
-          title: "Development Build"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+
+      - name: Build for Linux arm64
+        run: GOOS=linux GOARCH=arm64 go build -o killer-linux-arm64 main.go
+
+      - name: Build for Linux arm32
+        run: GOOS=linux GOARCH=arm go build -o killer-linux-arm32 main.go
+
+      - name: Build for Linux amd64
+        run: GOOS=linux GOARCH=amd64 go build -o killer-linux-amd64 main.go
+
+      - name: Build for Linux amd32
+        run: GOOS=linux GOARCH=386 go build -o killer-linux-amd32 main.go
+
+      - name: Build for Windows amd64
+        run: GOOS=windows GOARCH=amd64 go build -o killer-windows-amd64.exe main.go
+
+      - name: Build for Windows amd32
+        run: GOOS=windows GOARCH=386 go build -o killer-windows-amd32.exe main.go
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
           files: |
-            ./nodeUpgrade-${{ matrix.goos }}-${{ matrix.goarch }}.tgz              
-#     - name: Uploading assets...
-#       # if: ${{ !env.ACT }}
-#       # id: upload-release-asset 
-#       uses: actions/upload-release-asset@v1
-#       env:
-#         GITHUB_TOKEN: ${{ secrets.GOACTION }}
-#       with:
-#         upload_url: ${{ steps.latest_release_info.outputs.upload_url }}
-#         asset_path: ./nodeUpgrade-${{ matrix.goos }}-${{ matrix.goarch }}.tgz
-#         asset_name: nodeUpgrade-${{ matrix.goos }}-${{ matrix.goarch }}.tgz
-#         asset_content_type: application/gzip
+            killer-linux-arm64
+            killer-linux-arm32
+            killer-linux-amd64
+            killer-linux-amd32
+            killer-windows-amd64.exe
+            killer-windows-amd32.exe
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release_name: Release v1.0
