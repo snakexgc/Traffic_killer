@@ -52,5 +52,5 @@ jobs:
             killer-linux-amd32
             killer-windows-amd64.exe
             killer-windows-amd32.exe
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.tocken }}
           release_name: Release v1.0
